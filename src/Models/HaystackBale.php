@@ -9,6 +9,7 @@ use Sammyjo20\LaravelHaystack\Casts\Serialized;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Sammyjo20\LaravelHaystack\Contracts\StackableJob;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Sammyjo20\LaravelHaystack\Exceptions\UnreadableBale;
 use Sammyjo20\LaravelHaystack\Database\Factories\HaystackBaleFactory;
 
 class HaystackBale extends Model
@@ -48,10 +49,16 @@ class HaystackBale extends Model
 
     /**
      * Get the job already configured.
+     *
+     * @throws UnreadableBale when the job's class no longer exists or its payload is corrupt
      */
     public function configuredJob(): StackableJob
     {
         $job = $this->job;
+
+        if (! $job instanceof StackableJob) {
+            throw new UnreadableBale($this, $job);
+        }
 
         if ($this->delay > 0) {
             $job->delay($this->delay);
