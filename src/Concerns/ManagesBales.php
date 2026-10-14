@@ -24,6 +24,7 @@ use Sammyjo20\LaravelHaystack\Data\PendingHaystackBale;
 use Sammyjo20\LaravelHaystack\Middleware\CheckAttempts;
 use Sammyjo20\LaravelHaystack\Middleware\CheckFinished;
 use Sammyjo20\LaravelHaystack\Data\MiddlewareCollection;
+use Sammyjo20\LaravelHaystack\Exceptions\UnreadableBale;
 use Sammyjo20\LaravelHaystack\Middleware\IncrementAttempts;
 use Sammyjo20\LaravelHaystack\Exceptions\HaystackModelExists;
 use Laravel\SerializableClosure\Exceptions\PhpVersionNotSupportedException;
@@ -121,9 +122,19 @@ trait ManagesBales
             return;
         }
 
-        // Now we'll query the next bale.
+        // Now we'll query the next bale. One whose job class no longer exists can never
+        // run, so we fail the haystack instead of throwing, which would stop every
+        // haystack after it from being resumed.
 
-        $nextJob = $this->getNextJob();
+        try {
+            $nextJob = $this->getNextJob();
+        } catch (UnreadableBale $exception) {
+            logger()->warning($exception->getMessage(), ['haystack_id' => $this->getKey()]);
+
+            $this->fail();
+
+            return;
+        }
 
         // If no next job was found, we'll stop.
 
